@@ -70,6 +70,11 @@ async function askUser(page, browser) {
     let all_sshot_data = {};
     all_sshot_data = {};
 
+	// If the profile does not exist in db_obj
+	if (!db_obj.hasOwnProperty(profile_id)){
+		all_sshot_data.profile_id = {};
+	}
+
     // Cycle through our list of screenshots and populate all_sshot_data
     let ctr = 0;
     for (sshot_url of all_screenshot_urls){
@@ -77,7 +82,7 @@ async function askUser(page, browser) {
         let sshot_id = sshot_url.split('=')[1];
 
         try {
-            if ( 'date_posted' in (db_obj[profile_id][sshot_id] || {}) ){
+            if ( db_obj[profile_id][sshot_id].hasOwnProperty('date_posted') ){
                 // If the metadata has been retrieved but the image hasn't been downloaded queue it
                 if (db_obj[profile_id][sshot_id].downloadeded === false){
                     Object.assign(all_sshot_data[sshot_id], db_obj[profile_id][sshot_id])
@@ -92,7 +97,7 @@ async function askUser(page, browser) {
             }
         } catch (e){
             // It doesn't exist, we don't need to do anything.
-            console.log(e);
+            // console.log(e);
 
         }
 

@@ -35,6 +35,7 @@ async function getPage(page, n, total_pages, retries = 1, userURL = null) {
     //example: invalid page 
     //let p = `https://steamcommunity.com/id/sonicsalies/screenshots/?appid=123&sort=newestfirst&browsefilter=myfiles&view=grid`;
     let p = `${userURL}/screenshots/?appid=0&p=${n}&sort=oldestfirst&browsefilter=myfiles&view=grid`;
+	console.log(p);
     await page.goto(p);
 
     const notfound = await page.$('#NoItemsContainer');
@@ -47,7 +48,7 @@ async function getPage(page, n, total_pages, retries = 1, userURL = null) {
             return false;
         }
 
-        return getPage(page, n, retries + 1);
+        return getPage(page, n, total_pages, retries + 1, userURL);
     }
 
     console.log(`Analyzing page ${n} of ${total_pages}`);
