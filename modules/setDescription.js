@@ -1,4 +1,6 @@
-const piexif = require('piexifjs'), fs = require('fs'), path = require('path');
+const piexif = require('piexifjs');
+const fs = require('fs');
+const path = require('path');
 
 function toCharCode(input){
     let output = [];
@@ -12,34 +14,33 @@ function toCharCode(input){
     return output;
 }
 
-function setDescription(fileDir, desc){
-    return fs.readFile(fileDir, (err, data) => {
-        if(err){throw err}
 
-        const r = data.toString("binary");
+function setDescriptionFile(fileDir, desc){
+    // EXIF is a mess.
+    return fs.writeFileSync(`${fileDir.split('.').slice(0, -1).join('.')}.txt`, desc)
+}
 
-        let zeroth = {}, exifBytes, newData, newJpeg;
-        zeroth[piexif.ImageIFD.XPComment] = toCharCode(desc);
+function setDescription(filePath, desc){
+    let file_contents = fs.readFileSync(filePath);
 
-        const exifObj = {"0th":zeroth};
+    const r = file_contents.toString("binary");
 
-        try{
-            exifBytes = piexif.dump(exifObj);
-            newData = piexif.insert(exifBytes, r);
-            newJpeg = Buffer.from(newData, "binary");
+    let zeroth = {}, exifBytes, newData, newJpeg;
+    zeroth[piexif.ImageIFD.XPComment] = toCharCode(desc);
+
+    const exifObj = {"0th":zeroth};
+
+    try{
+        exifBytes = piexif.dump(exifObj);
+        newData = piexif.insert(exifBytes, r);
+        newJpeg = Buffer.from(newData, "binary");
+        fs.writeFileSync(filePath, newJpeg);
         }
-        catch{
-            //This is common, as the commentaries for an image are limited to a very narrow ammount of characters. Kanji, for example, are not supported.
-            return fs.writeFile(`${path.basename(fileDir, '.jpg')}.txt`, desc, function() {
-                if(err){throw err}
-                console.log("ERROR: Description couldn't be added to image as a commentary. The description was saved to .txt file. Check the tool's documentation for more information on the matter.");
-            }); 
-        }
-
-        fs.writeFile(fileDir, newJpeg, function(err) {
-            if(err){throw err}
-        });
-    });
+    catch (error){
+        console.log(error);
+        //This is common, as the commentaries for an image are limited to a very narrow ammount of characters. Kanji, for example, are not supported.
+        return fs.writeFileSync(`${filePath.split('.').slice(0, -1).join('.')}.txt`, desc); 
+    }
 }
 
 module.exports = setDescription;

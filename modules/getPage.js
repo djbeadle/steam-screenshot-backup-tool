@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { exit } = require('process');
 /**
  * Load the user's screenshot page and see how many pages there are.
  * 
@@ -11,7 +12,14 @@ async function getNumPages(page, userURL){
     
     // Get the total number of pages
     const pages = await page.$('div.pagingPageLinks > a:nth-last-child(2)');
-    const total_pages = await page.evaluate(pages => pages.textContent, pages);
+    let total_pages;
+    try{
+       total_pages = await page.evaluate(pages => pages.textContent, pages);
+    }
+    catch (error){
+        console.log("It appears that this user does not have any public screenshots.");
+        process.exit();
+    }
     
     console.log(`Found ${total_pages} pages.`)
 

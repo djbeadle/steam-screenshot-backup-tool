@@ -26,10 +26,13 @@
   },
   "homepage": "https://github.com/djbeadle/steam-screenshot-backup-tool#readme",
   "dependencies": {
+    "aws-sdk": "^2.901.0",
     "axios": "^0.21.1",
+    "dotenv": "^9.0.0",
     "piexifjs": "1.0.4",
     "prompt-sync": "^4.2.0",
     "puppeteer": "^2.1.1",
-    "sanitize-filename": "^1.6.3"
+    "sanitize-filename": "^1.6.3",
+    "zip-local": "^0.3.4"
   }
 }

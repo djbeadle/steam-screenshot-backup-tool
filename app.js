@@ -1,20 +1,31 @@
+require('dotenv').config()
+
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+var zipper = require('zip-local');
 
 const { getPage, getNumPages } = require('./modules/getPage');
 const { getScreenshotMetadata } = require('./modules/getScreenshotUrl');
 const { downloadScreenshot } = require('./modules/getScreenshots');
+const { uploadFile } = require('./modules/uploadFile');
 const { ENOENT } = require('constants');
 const { profile } = require('console');
 
 const prompt = require("prompt-sync")();
 
+let current_userid = undefined;
+
 async function askUser(page, browser) {
     const TEST_RUN = false; // if true just download one of each
 
     // url = "https://steamcommunity.com/profiles/76561198031201270";
-    let url = prompt("Enter a Steam profile URL [ex: https://steamcommunity.com/profiles/123]:");
-    let profile_id = url.split("profiles/")[1].replace('/', "");
+    // let url = prompt("Enter a Steam profile URL [ex: https://steamcommunity.com/profiles/123]:");
+    // let profile_id = url.split("profiles/")[1].replace('/', "");
+
+    // TODO: automatically determine userid and username
+
+    let url = `https://steamcommunity.com/profiles/${current_userid}`;
+    let profile_id = current_userid;
 
     // Remove any trailing slash from the input
     if (url.slice(-1) === "/") {
@@ -48,7 +59,9 @@ async function askUser(page, browser) {
             all_screenshot_urls = all_screenshot_urls.concat(elements)
         );
         i += 1;
-        
+
+        throw new Error();
+
         if (TEST_RUN){
             break;
         }
@@ -97,16 +110,24 @@ async function askUser(page, browser) {
             }
         } catch (e){
             // It doesn't exist, we don't need to do anything.
+            console.log('not cached');
             // console.log(e);
-
         }
 
         console.log(`${ctr}/${all_screenshot_urls.length} - Downloading metadata for ${sshot_id} and queuing image`);
 
-        await getScreenshotMetadata(sshot_url, page).then(data => {
-            all_sshot_data[sshot_id] = {};
-            Object.assign(all_sshot_data[sshot_id], data)
-        });
+		for (x=0; x < 4; x++){
+            let data;
+            try{
+                data = await getScreenshotMetadata(sshot_url, page);
+                all_sshot_data[sshot_id] = {};
+                Object.assign(all_sshot_data[sshot_id], data)
+                break;
+            }
+            catch (error){
+                console.log("  error downloading, trying again.");
+            }
+		}
 
         if (TEST_RUN){
             break;
@@ -143,7 +164,7 @@ async function askUser(page, browser) {
         console.log(`${ctr}/${num_photos_to_download} - Downloading screenshot ${sshot_id}`);
 
         try{
-            downloadScreenshot(
+            await downloadScreenshot(
                 output_folder_name,
                 all_sshot_data[sshot_id],
                 sshot_id
@@ -152,10 +173,6 @@ async function askUser(page, browser) {
         }
         catch (TypeError) {
             console.log(`  This download failed! Running the script again will attempt to redownload this file.`)
-        }
-
-        if (TEST_RUN){
-            break;
         }
     }
 
@@ -179,12 +196,61 @@ async function askUser(page, browser) {
         console.log(e);
     }
     
+    // Archive the result
+
+    // delete any previous archives
+    const zip_filename = `${output_folder_name}.zip`;
+    if (fs.existsSync(zip_filename)){
+        fs.unlinkSync(zip_filename);
+        console.log(`successfully deleted ${zip_filename}`);
+    }
+
+    zipper.sync.zip(output_folder_name).compress().save(`${zip_filename}`);
+
+    uploadFile(zip_filename);
 }
 
-(async () => {
-    const browser = await puppeteer.launch(),
-        page = await browser.newPage();
+async function main(){
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+
+    current_userid = process.argv[2];
+
     await page.setDefaultNavigationTimeout(0);
 
-    askUser(page, browser);
-})();
+    await askUser(page, browser);
+};
+
+if (require.main === module) {
+    main();
+}
+
+exports.handler =  async function(event, context) {
+    /**
+     * AWS handler
+     */
+    console.log("EVENT: \n" + JSON.stringify(event, null, 2))
+
+    current_userid = event.userid;
+    await main();
+
+    return context.logStreamName
+}
+
+process.on('uncaughtException', function(err) {
+    // Dump data.json to a file for safe keeping if an unexpected error occurs
+    console.log('caught error');
+    try{
+        fs.rmSync('data.json');
+    } catch (e){
+        console.log(e);
+    }
+
+    try {
+        fs.writeFileSync('data.json', JSON.stringify(db_obj));
+    } catch (e){
+        console.log("Some weird error occurred");
+        console.log(e);
+    }
+    process.exit(6);
+})
